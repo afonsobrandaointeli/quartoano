@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Projetos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Plotly CDN -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <!-- Navbar (menu) -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="/">Gerenciamento</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <!-- Link para editar alunos -->
+          <li class="nav-item">
+            <a class="nav-link" href="/alunos">Editar Aluno</a>
+          </li>
+          <!-- Link para criar novo projeto -->
+          <li class="nav-item">
+            <a class="nav-link" href="/projetos/new">Criar Novo Projeto</a>
+          </li>
+          <!-- (Opcional) Link para o Dashboard externo -->
+          <li class="nav-item">
+            <a class="nav-link" href="https://fouranoproject.onrender.com" target="_blank">Dashboard</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Conteúdo Principal -->
+  <div class="container mt-4">
+    <h1 class="mb-4">Relatório de Projetos</h1>
+    
+    <!-- Formulário de Filtros -->
+    <form method="GET" action="/relatorio" class="row g-3 mb-4">
+      <div class="col-md-4">
+        <label for="professor" class="form-label">Filtrar por Professor</label>
+        <select class="form-select" id="professor" name="professor">
+          <option value="Todos" <%= professorFilter === 'Todos' ? 'selected' : '' %>>Todos</option>
+          <% professores.sort().forEach(p => { %>
+            <option value="<%= p %>" <%= professorFilter === p ? 'selected' : '' %>><%= p %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="trilha" class="form-label">Filtrar por Trilha</label>
+        <select class="form-select" id="trilha" name="trilha">
+          <option value="Todas" <%= trilhaFilter === 'Todas' ? 'selected' : '' %>>Todas</option>
+          <% trilhas.sort().forEach(t => { %>
+            <option value="<%= t %>" <%= trilhaFilter === t ? 'selected' : '' %>><%= t %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="aluno" class="form-label">Filtrar por Aluno</label>
+        <input type="text" class="form-control" id="aluno" name="aluno" placeholder="Digite o nome do aluno" value="<%= alunoFilter %>">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+        <a href="/relatorio" class="btn btn-secondary">Limpar Filtros</a>
+      </div>
+    </form>
+    
+    <!-- Tabela de Projetos -->
+    <h3>Lista de Projetos</h3>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Trilha</th>
+          <th>Tema</th>
+          <th>Professor</th>
+          <th>Alunos</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% projetos.forEach(proj => { %>
+          <tr>
+            <td><%= proj.id %></td>
+            <td><%= proj.trilha %></td>
+            <td><%= proj.tema %></td>
+            <td><%= proj.professor_orientador %></td>
+            <td><%= proj.alunos %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    
+    <!-- Gráfico de Donut -->
+    <h3 class="mt-5">Distribuição de Projetos por Trilha</h3>
+    <div id="donutChart"></div>
+    <script>
+      const data = [{
+        values: [
+          <%= trilhaCounts["Acadêmica"] %>, 
+          <%= trilhaCounts["Corporativa"] %>, 
+          <%= trilhaCounts["Empreendedora"] %>
+        ],
+        labels: ["Acadêmica", "Corporativa", "Empreendedora"],
+        type: 'pie',
+        hole: 0.4,
+        textinfo: 'percent+label+value'
+      }];
+      const layout = {
+        title: 'Projetos por Trilha',
+        height: 400,
+        width: 500
+      };
+      Plotly.newPlot('donutChart', data, layout);
+    </script>
+    
+    <!-- Botões para Download dos Relatórios -->
+    <div class="mt-4">
+      <a href="/relatorio/excel?<%= 'professor=' + professorFilter + '&trilha=' + trilhaFilter + '&aluno=' + alunoFilter %>" class="btn btn-success">Baixar Relatório em Excel</a>
+      <a href="/relatorio/pdf?<%= 'professor=' + professorFilter + '&trilha=' + trilhaFilter + '&aluno=' + alunoFilter %>" class="btn btn-danger">Baixar Relatório em PDF</a>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

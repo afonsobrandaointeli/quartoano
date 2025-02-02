@@ -15,13 +15,17 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
-          <!-- Link para a página de alunos (editar aluno) -->
+          <!-- Link para editar alunos -->
           <li class="nav-item">
             <a class="nav-link" href="/alunos">Editar Aluno</a>
           </li>
-          <!-- Link para a criação de novo projeto -->
+          <!-- Link para criar novo projeto -->
           <li class="nav-item">
             <a class="nav-link" href="/projetos/new">Criar Novo Projeto</a>
+          </li>
+          <!-- Link para o relatório -->
+          <li class="nav-item">
+            <a class="nav-link" href="/relatorio">Relatório</a>
           </li>
         </ul>
       </div>
@@ -35,8 +39,11 @@
     <!-- Formulário de Filtro -->
     <form method="GET" action="/">
       <div class="mb-3">
-        <label for="filtro" class="form-label">Filtro (por ID, professor ou nome do aluno)</label>
-        <input type="text" class="form-control" id="filtro" name="filtro" value="<%= filtro %>" placeholder="Digite o filtro">
+        <label for="filtro" class="form-label">
+          Filtro (por ID, professor, trilha ou nome do aluno)
+        </label>
+        <!-- Se "filtro" não estiver definido, usa string vazia -->
+        <input type="text" class="form-control" id="filtro" name="filtro" value="<%= typeof filtro !== 'undefined' ? filtro : '' %>" placeholder="Digite o filtro">
       </div>
       <button type="submit" class="btn btn-primary">Filtrar</button>
       <a href="/" class="btn btn-secondary">Limpar Filtro</a>

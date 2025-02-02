@@ -1,27 +1,30 @@
 // server.js
 
-require('dotenv').config(); // Carrega as variáveis do arquivo .env (se existir)
+require('dotenv').config();
 const express = require('express');
 const { Sequelize, DataTypes } = require('sequelize');
 const path = require('path');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configura o EJS como view engine e define a pasta de views
+// Configuração do view engine (EJS) e pasta de views
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Configura a pasta para arquivos estáticos (CSS, JS, imagens, etc.)
+// Pasta para arquivos estáticos (CSS, JS, imagens, etc.)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Para tratar dados enviados via formulário (application/x-www-form-urlencoded)
+// Para tratar dados enviados via formulários
 app.use(express.urlencoded({ extended: false }));
 
-// Connection string para o PostgreSQL – use a variável de ambiente ou o valor padrão
+// Conexão com o PostgreSQL
 const DATABASE_URL =
-  process.env.DATABASE_URL
-  
+  process.env.DATABASE_URL ||
+  'postgresql://getcommits_user:X4oeIBBTdnpQiyI5x0XcmdVHcze5ooY1@dpg-cpg3p8mct0pc73d6f8m0-a.oregon-postgres.render.com/getcommits';
+
 const sequelize = new Sequelize(DATABASE_URL, {
   dialect: 'postgres',
   protocol: 'postgres',
@@ -29,27 +32,25 @@ const sequelize = new Sequelize(DATABASE_URL, {
   dialectOptions: {
     ssl: {
       require: true,
-      rejectUnauthorized: false // Necessário para alguns provedores que exigem SSL
+      rejectUnauthorized: false
     }
   }
 });
 
 /* ============================
-   Modelos do Banco de Dados
+   MODELOS DO BANCO DE DADOS
 ============================= */
 
 // Modelo para a tabela 'projetos'
-// Campos:
-//   id                   -> integer, não auto-increment, chave primária
-//   tema                 -> character varying(255), NOT NULL
-//   descricao            -> text, pode ser nulo
-//   professor_orientador -> character varying(255), NOT NULL
-//   trilha               -> character varying(255), pode ser nulo
 const Projeto = sequelize.define('Projeto', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     allowNull: false
+  },
+  trilha: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   },
   tema: {
     type: DataTypes.STRING(255),
@@ -62,10 +63,6 @@ const Projeto = sequelize.define('Projeto', {
   professor_orientador: {
     type: DataTypes.STRING(255),
     allowNull: false
-  },
-  trilha: {
-    type: DataTypes.STRING(255),
-    allowNull: true
   }
 }, {
   tableName: 'projetos',
@@ -73,11 +70,6 @@ const Projeto = sequelize.define('Projeto', {
 });
 
 // Modelo para a tabela 'alunos'
-// Campos:
-//   id         -> integer, auto-increment, chave primária
-//   nome       -> character varying(255), NOT NULL
-//   email      -> character varying(255), NOT NULL
-//   projeto_id -> integer, pode ser nulo, chave estrangeira para projetos.id
 const Aluno = sequelize.define('Aluno', {
   id: {
     type: DataTypes.INTEGER,
@@ -105,44 +97,47 @@ const Aluno = sequelize.define('Aluno', {
   timestamps: false
 });
 
-// Define as relações: Um Projeto possui muitos Alunos e cada Aluno pertence a um Projeto
+// Definindo as relações
 Projeto.hasMany(Aluno, { foreignKey: 'projeto_id', as: 'alunos' });
 Aluno.belongsTo(Projeto, { foreignKey: 'projeto_id', as: 'projeto' });
 
-// Testa a conexão com o banco
+// Teste de conexão
 sequelize.authenticate()
   .then(() => console.log('Conexão com o banco estabelecida com sucesso!'))
   .catch(err => console.error('Erro ao conectar no banco:', err));
 
 /* ============================
-   ROTAS PARA PROJETOS
+   ROTAS PARA A PÁGINA INICIAL (HOME)
 ============================= */
 
-// Rota principal: exibe todos os projetos (com seus alunos) e permite filtrar
 app.get('/', async (req, res) => {
   try {
+    // Obtemos o filtro da query string, se houver
     const filtro = req.query.filtro ? req.query.filtro.trim() : '';
+    // Busca todos os projetos, incluindo os alunos associados
     let projetos = await Projeto.findAll({
       include: [{ model: Aluno, as: 'alunos' }]
     });
-
-    // Aplica o filtro (por ID, professor ou nome do aluno)
+    // Se houver filtro, filtra os projetos em memória
     if (filtro) {
       projetos = projetos.filter(proj => {
-        // Filtra pelo ID (convertido para string)
         if (proj.id.toString().includes(filtro)) return true;
-        // Filtra pelo professor orientador (case insensitive)
         if (proj.professor_orientador && proj.professor_orientador.toLowerCase().includes(filtro.toLowerCase())) return true;
-        // Filtra pelo nome de algum aluno associado
+        if (proj.trilha && proj.trilha.toLowerCase().includes(filtro.toLowerCase())) return true;
         if (proj.alunos && proj.alunos.some(aluno => aluno.nome.toLowerCase().includes(filtro.toLowerCase()))) return true;
         return false;
       });
     }
-    res.render('index', { projetos, filtro });
+    // Renderiza a página index.ejs, passando o filtro e os projetos
+    res.render('index', { filtro, projetos });
   } catch (error) {
-    res.status(500).send("Erro ao buscar projetos: " + error);
+    res.status(500).send("Erro ao carregar a página inicial: " + error);
   }
 });
+
+/* ============================
+   ROTAS PARA PROJETOS
+============================= */
 
 // Formulário para criar um novo projeto
 app.get('/projetos/new', (req, res) => {
@@ -171,8 +166,7 @@ app.get('/projetos/:id/edit', async (req, res) => {
   try {
     const projeto = await Projeto.findByPk(req.params.id);
     if (!projeto) return res.status(404).send("Projeto não encontrado");
-
-    // Seleciona os professores distintos para preencher o dropdown
+    // Consulta os professores distintos para o dropdown
     const professores = await Projeto.findAll({
       attributes: [
         [sequelize.fn('DISTINCT', sequelize.col('professor_orientador')), 'professor_orientador']
@@ -191,13 +185,11 @@ app.post('/projetos/:id', async (req, res) => {
   try {
     const projeto = await Projeto.findByPk(req.params.id);
     if (!projeto) return res.status(404).send("Projeto não encontrado");
-
     projeto.id = parseInt(new_id);
     projeto.tema = tema;
     projeto.descricao = descricao;
     projeto.professor_orientador = professor_orientador;
     projeto.trilha = trilha;
-
     await projeto.save();
     res.redirect('/');
   } catch (error) {
@@ -210,7 +202,6 @@ app.post('/projetos/:id/delete', async (req, res) => {
   try {
     const projeto = await Projeto.findByPk(req.params.id);
     if (!projeto) return res.status(404).send("Projeto não encontrado");
-
     await projeto.destroy();
     res.redirect('/');
   } catch (error) {
@@ -222,7 +213,7 @@ app.post('/projetos/:id/delete', async (req, res) => {
    ROTAS PARA ALUNOS
 ============================= */
 
-// Exibe a lista de alunos (com informações do projeto, se houver)
+// Lista de alunos (com informações do projeto associado)
 app.get('/alunos', async (req, res) => {
   try {
     const alunos = await Aluno.findAll({
@@ -277,11 +268,9 @@ app.post('/alunos/:id', async (req, res) => {
   try {
     const aluno = await Aluno.findByPk(req.params.id);
     if (!aluno) return res.status(404).send("Aluno não encontrado");
-
     aluno.nome = nome;
     aluno.email = email;
     aluno.projeto_id = projeto_id ? parseInt(projeto_id) : null;
-
     await aluno.save();
     res.redirect('/alunos');
   } catch (error) {
@@ -294,7 +283,6 @@ app.post('/alunos/:id/delete', async (req, res) => {
   try {
     const aluno = await Aluno.findByPk(req.params.id);
     if (!aluno) return res.status(404).send("Aluno não encontrado");
-
     await aluno.destroy();
     res.redirect('/alunos');
   } catch (error) {
@@ -302,7 +290,159 @@ app.post('/alunos/:id/delete', async (req, res) => {
   }
 });
 
-// Inicia o servidor
+/* ============================
+   ROTAS PARA RELATÓRIO
+============================= */
+
+// Função para obter projetos agregados (similar ao script Python)
+async function obterProjetosAgrupados() {
+  const sql = `
+    SELECT p.id, p.trilha, p.tema, p.professor_orientador, p.descricao,
+           COALESCE(STRING_AGG(a.nome, ', ' ORDER BY a.nome), 'Sem alunos') AS alunos
+    FROM projetos p
+    LEFT JOIN alunos a ON p.id = a.projeto_id
+    GROUP BY p.id, p.trilha, p.tema, p.professor_orientador, p.descricao
+  `;
+  const projetos = await sequelize.query(sql, { type: Sequelize.QueryTypes.SELECT });
+  return projetos;
+}
+
+app.get('/relatorio', async (req, res) => {
+  try {
+    let projetos = await obterProjetosAgrupados();
+    // Exclui projetos com trilha "Intercâmbio"
+    projetos = projetos.filter(p => p.trilha !== 'Intercâmbio');
+
+    const professorFilter = req.query.professor ? req.query.professor.trim() : 'Todos';
+    const trilhaFilter = req.query.trilha ? req.query.trilha.trim() : 'Todas';
+    const alunoFilter = req.query.aluno ? req.query.aluno.trim() : '';
+
+    if (professorFilter !== 'Todos') {
+      projetos = projetos.filter(p => p.professor_orientador === professorFilter);
+    }
+    if (trilhaFilter !== 'Todas') {
+      projetos = projetos.filter(p => p.trilha === trilhaFilter);
+    }
+    if (alunoFilter) {
+      projetos = projetos.filter(p => p.alunos.toLowerCase().includes(alunoFilter.toLowerCase()));
+    }
+
+    const todosProjetos = await obterProjetosAgrupados();
+    const professores = [...new Set(todosProjetos.map(p => p.professor_orientador).filter(Boolean))];
+    const trilhas = [...new Set(todosProjetos.map(p => p.trilha).filter(Boolean))];
+
+    // Cálculo para o gráfico de donut (categorias: Acadêmica, Corporativa, Empreendedora)
+    const trilhaCategorias = ["Acadêmica", "Corporativa", "Empreendedora"];
+    const trilhaCounts = { "Acadêmica": 0, "Corporativa": 0, "Empreendedora": 0 };
+    projetos.forEach(p => {
+      if (trilhaCategorias.includes(p.trilha)) {
+        trilhaCounts[p.trilha]++;
+      }
+    });
+
+    res.render('relatorio', { 
+      projetos, 
+      professorFilter, 
+      trilhaFilter, 
+      alunoFilter, 
+      professores, 
+      trilhas, 
+      trilhaCounts 
+    });
+  } catch (error) {
+    res.status(500).send("Erro ao gerar relatório: " + error);
+  }
+});
+
+// Rota para baixar relatório em Excel
+app.get('/relatorio/excel', async (req, res) => {
+  try {
+    let projetos = await obterProjetosAgrupados();
+    projetos = projetos.filter(p => p.trilha !== 'Intercâmbio');
+
+    const professorFilter = req.query.professor ? req.query.professor.trim() : 'Todos';
+    const trilhaFilter = req.query.trilha ? req.query.trilha.trim() : 'Todas';
+    const alunoFilter = req.query.aluno ? req.query.aluno.trim() : '';
+
+    if (professorFilter !== 'Todos') {
+      projetos = projetos.filter(p => p.professor_orientador === professorFilter);
+    }
+    if (trilhaFilter !== 'Todas') {
+      projetos = projetos.filter(p => p.trilha === trilhaFilter);
+    }
+    if (alunoFilter) {
+      projetos = projetos.filter(p => p.alunos.toLowerCase().includes(alunoFilter.toLowerCase()));
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Projetos');
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Trilha', key: 'trilha', width: 20 },
+      { header: 'Tema', key: 'tema', width: 30 },
+      { header: 'Professor', key: 'professor_orientador', width: 25 },
+      { header: 'Descrição', key: 'descricao', width: 40 },
+      { header: 'Alunos', key: 'alunos', width: 50 }
+    ];
+    projetos.forEach(proj => {
+      worksheet.addRow(proj);
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=relatorio_projetos.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(500).send("Erro ao gerar Excel: " + error);
+  }
+});
+
+// Rota para baixar relatório em PDF
+app.get('/relatorio/pdf', async (req, res) => {
+  try {
+    let projetos = await obterProjetosAgrupados();
+    projetos = projetos.filter(p => p.trilha !== 'Intercâmbio');
+
+    const professorFilter = req.query.professor ? req.query.professor.trim() : 'Todos';
+    const trilhaFilter = req.query.trilha ? req.query.trilha.trim() : 'Todas';
+    const alunoFilter = req.query.aluno ? req.query.aluno.trim() : '';
+
+    if (professorFilter !== 'Todos') {
+      projetos = projetos.filter(p => p.professor_orientador === professorFilter);
+    }
+    if (trilhaFilter !== 'Todas') {
+      projetos = projetos.filter(p => p.trilha === trilhaFilter);
+    }
+    if (alunoFilter) {
+      projetos = projetos.filter(p => p.alunos.toLowerCase().includes(alunoFilter.toLowerCase()));
+    }
+
+    const doc = new PDFDocument({ margin: 30, size: 'A4' });
+    let buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => {
+      let pdfData = Buffer.concat(buffers);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=relatorio_projetos.pdf');
+      res.end(pdfData);
+    });
+
+    doc.fontSize(16).text('Relatório de Projetos', { align: 'center' });
+    doc.moveDown();
+    projetos.forEach(proj => {
+      doc.fontSize(10)
+         .text(`ID: ${proj.id} | Trilha: ${proj.trilha} | Tema: ${proj.tema} | Professor: ${proj.professor_orientador}`);
+      doc.text(`Alunos: ${proj.alunos}`);
+      doc.moveDown(0.5);
+    });
+    doc.end();
+  } catch (error) {
+    res.status(500).send("Erro ao gerar PDF: " + error);
+  }
+});
+
+/* ============================
+   INICIA O SERVIDOR
+============================= */
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });
