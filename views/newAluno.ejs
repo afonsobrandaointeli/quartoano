@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Novo Aluno</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1 class="mt-4">Cadastrar Novo Aluno</h1>
+    <form action="/alunos" method="POST">
+      <div class="mb-3">
+        <label for="nome" class="form-label">Nome</label>
+        <input type="text" class="form-control" id="nome" name="nome" required>
+      </div>
+      <div class="mb-3">
+        <label for="email" class="form-label">E-mail</label>
+        <input type="email" class="form-control" id="email" name="email" required>
+      </div>
+      <div class="mb-3">
+        <label for="projeto_id" class="form-label">Projeto</label>
+        <select class="form-select" id="projeto_id" name="projeto_id" required>
+          <option value="">Selecione um Projeto</option>
+          <% projetos.forEach(projeto => { %>
+            <option value="<%= projeto.id %>"><%= projeto.tema %> (ID: <%= projeto.id %>)</option>
+          <% }); %>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+      <a href="/alunos" class="btn btn-secondary">Cancelar</a>
+    </form>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

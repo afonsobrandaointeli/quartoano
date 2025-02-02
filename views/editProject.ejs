@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Editar Projeto</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1 class="mt-4">Editar Projeto <%= projeto.id %></h1>
+    <!-- O formulário envia os dados para a rota que atualiza o projeto -->
+    <form action="/projetos/<%= projeto.id %>" method="POST">
+      <!-- Campo para alterar o ID -->
+      <div class="mb-3">
+        <label for="new_id" class="form-label">Novo ID do Projeto</label>
+        <input type="number" class="form-control" id="new_id" name="new_id" value="<%= projeto.id %>" required>
+      </div>
+
+      <!-- Campo para alterar o Tema -->
+      <div class="mb-3">
+        <label for="tema" class="form-label">Tema</label>
+        <input type="text" class="form-control" id="tema" name="tema" value="<%= projeto.tema %>" required>
+      </div>
+
+      <!-- Campo para alterar a Descrição -->
+      <div class="mb-3">
+        <label for="descricao" class="form-label">Descrição</label>
+        <textarea class="form-control" id="descricao" name="descricao"><%= projeto.descricao %></textarea>
+      </div>
+
+      <!-- Drop down para selecionar o Professor Orientador -->
+      <div class="mb-3">
+        <label for="professor_orientador" class="form-label">Professor Orientador</label>
+        <select class="form-select" id="professor_orientador" name="professor_orientador" required>
+          <% professores.forEach(prof => { %>
+            <option value="<%= prof.professor_orientador %>" 
+              <%= prof.professor_orientador === projeto.professor_orientador ? 'selected' : '' %>>
+              <%= prof.professor_orientador %>
+            </option>
+          <% }); %>
+        </select>
+      </div>
+
+      <!-- Drop down para selecionar a Trilha com as três opções fixas -->
+      <div class="mb-3">
+        <label for="trilha" class="form-label">Trilha</label>
+        <select class="form-select" id="trilha" name="trilha" required>
+          <% 
+            const trilhaOpcoes = ["Acadêmica", "Coorporativa", "Empreendedora"];
+            trilhaOpcoes.forEach(opcao => { 
+          %>
+            <option value="<%= opcao %>" <%= projeto.trilha === opcao ? 'selected' : '' %>><%= opcao %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Atualizar Projeto</button>
+      <a href="/" class="btn btn-secondary">Cancelar</a>
+    </form>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
