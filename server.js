@@ -310,33 +310,45 @@ async function obterProjetosAgrupados() {
 app.get('/relatorio', async (req, res) => {
   try {
     let projetos = await obterProjetosAgrupados();
+    
     // Exclui projetos com trilha "Intercâmbio"
     projetos = projetos.filter(p => p.trilha !== 'Intercâmbio');
-
+    
     const professorFilter = req.query.professor ? req.query.professor.trim() : 'Todos';
     const trilhaFilter = req.query.trilha ? req.query.trilha.trim() : 'Todas';
     const alunoFilter = req.query.aluno ? req.query.aluno.trim() : '';
-
+    
     if (professorFilter !== 'Todos') {
       projetos = projetos.filter(p => p.professor_orientador === professorFilter);
     }
+    
     if (trilhaFilter !== 'Todas') {
       projetos = projetos.filter(p => p.trilha === trilhaFilter);
     }
+    
     if (alunoFilter) {
       projetos = projetos.filter(p => p.alunos.toLowerCase().includes(alunoFilter.toLowerCase()));
     }
-
+    
     const todosProjetos = await obterProjetosAgrupados();
     const professores = [...new Set(todosProjetos.map(p => p.professor_orientador).filter(Boolean))];
     const trilhas = [...new Set(todosProjetos.map(p => p.trilha).filter(Boolean))];
-
+    
     // Cálculo para o gráfico de donut (categorias: Acadêmica, Corporativa, Empreendedora)
     const trilhaCategorias = ["Acadêmica", "Corporativa", "Empreendedora"];
     const trilhaCounts = { "Acadêmica": 0, "Corporativa": 0, "Empreendedora": 0 };
     projetos.forEach(p => {
       if (trilhaCategorias.includes(p.trilha)) {
         trilhaCounts[p.trilha]++;
+      }
+    });
+
+    // Contagem de projetos por professor
+    const professorCounts = {};
+    projetos.forEach(proj => {
+      const professor = proj.professor_orientador;
+      if (professor) {
+        professorCounts[professor] = (professorCounts[professor] || 0) + 1;
       }
     });
 
@@ -347,7 +359,8 @@ app.get('/relatorio', async (req, res) => {
       alunoFilter, 
       professores, 
       trilhas, 
-      trilhaCounts 
+      trilhaCounts,
+      professorCounts // Adiciona professorCounts ao contexto do template
     });
   } catch (error) {
     res.status(500).send("Erro ao gerar relatório: " + error);
