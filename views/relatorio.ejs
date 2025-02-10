@@ -116,6 +116,25 @@
       Plotly.newPlot('donutChart', data, layout);
     </script>
     
+    <!-- Tabela de Contagem de Projetos por Professor -->
+    <h3 class="mt-5">Contagem de Projetos por Professor</h3>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Professor</th>
+          <th>Número de Projetos</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% Object.entries(professorCounts).sort((a, b) => b[1] - a[1]).forEach(([professor, count]) => { %>
+          <tr>
+            <td><%= professor %></td>
+            <td><%= count %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+
     <!-- Botões para Download dos Relatórios -->
     <div class="mt-4">
       <a href="/relatorio/excel?<%= 'professor=' + professorFilter + '&trilha=' + trilhaFilter + '&aluno=' + alunoFilter %>" class="btn btn-success">Baixar Relatório em Excel</a>
